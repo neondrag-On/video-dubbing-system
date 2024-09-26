@@ -7,9 +7,6 @@ from pydub.silence import split_on_silence
 import speech_recognition as sr
 from gtts import gTTS
 from googletrans import Translator
-from pyAudioAnalysis import audioBasicIO, MidTermFeatures
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC
 import whisper
 
 # Function to extract audio from video
@@ -34,7 +31,7 @@ def transcribe_audio_chunks(chunks):
     recognizer = sr.Recognizer()
     full_text = []
 
-    for i, chunk in enumerate(chunks):
+    for chunk in chunks:
         with NamedTemporaryFile(suffix=".wav", delete=False) as chunk_file:
             chunk.export(chunk_file.name, format="wav")
             with sr.AudioFile(chunk_file.name) as source:
@@ -55,7 +52,6 @@ def translate_text(text, target_language):
 
 # Function to convert text to audio with gender-specific voices
 def text_to_audio(text, lang='hi'):
-    # Adjust gTTS voice based on gender (female/male voices differ by language in advanced APIs)
     tts = gTTS(text=text, lang=lang, slow=False)
     
     with NamedTemporaryFile(suffix=".mp3", delete=False) as temp_audio_file:
@@ -70,7 +66,7 @@ def process_video_chunks(input_video_path, translated_audio_paths):
     video = VideoFileClip(input_video_path)
     video_chunks = []
     
-    chunk_duration = 60  # 60 seconds per chunk (adjust as needed)
+    chunk_duration = 60  # 60 seconds per chunk
     for start_time in range(0, int(video.duration), chunk_duration):
         end_time = min(start_time + chunk_duration, video.duration)
         chunk = video.subclip(start_time, end_time)
@@ -88,14 +84,10 @@ def process_video_chunks(input_video_path, translated_audio_paths):
     
     return output_path
 
-# Function to handle the full video dubbing process with gender detection
+# Function to handle the full video dubbing process
 def process_video_to_dubbed_video(input_video_path, target_language='hi'):
-    # Extract and preprocess audio from video
     audio_output_path = extract_audio_from_video(input_video_path)
     preprocessed_audio_path = preprocess_audio(audio_output_path)
-    
-    # Detect gender from audio
-  
     
     # Split audio into chunks
     audio = AudioSegment.from_wav(preprocessed_audio_path)
@@ -107,7 +99,7 @@ def process_video_to_dubbed_video(input_video_path, target_language='hi'):
     # Translate text
     translated_text = translate_text(transcription, target_language)
     
-    # Generate translated audio with gender-specific voice
+    # Generate translated audio
     translated_audio_paths = [text_to_audio(translated_text, lang=target_language)] * len(chunks)
     
     # Process video chunks with new audio
@@ -116,7 +108,7 @@ def process_video_to_dubbed_video(input_video_path, target_language='hi'):
     return final_video_path, translated_text, transcription
 
 # Streamlit Interface
-st.title("Video Dubbing Application with Gender Detection")
+st.title("Video Dubbing Application")
 
 input_video_path = st.text_input("Enter the path to the input video:")
 target_language = st.selectbox("Select the target language:", ["hi", "ta", "ur"])
@@ -129,23 +121,16 @@ if st.button("Process Video"):
     # Display video
     st.video(final_video_path)
     
-    # Create a container to hold the transcription and translated text
-    with st.container():
-        # Show transcription
-        if st.checkbox("Show Original Transcription"):
-            st.subheader("Original Transcription")
-            st.text(transcription)
-        
-        # Show translated text
-        if st.checkbox("Show Translated Text"):
-            st.subheader("Translated Text")
-            st.text(translated_text)
+    # Show transcription
+    if st.checkbox("Show Original Transcription"):
+        st.subheader("Original Transcription")
+        st.text(transcription)
     
-    # Provide download option for the video
+    # Show translated text
+    if st.checkbox("Show Translated Text"):
+        st.subheader("Translated Text")
+        st.text(translated_text)
+    
+    # Download video
     with open(final_video_path, "rb") as f:
-        st.download_button(
-            label="Download Final Video",
-            data=f,
-            file_name="output_video.mp4",
-            mime="video/mp4"
-        )
+        st.download_button("Download Final Video", data=f, file_name="output_video.mp4", mime="video/mp4")
